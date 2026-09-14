@@ -1,0 +1,14 @@
+# Ambientes Virtuais (Python)
+.venv/
+venv/
+env/
+__pycache__/
+.gitignore padrão:
+# Dependências de Projetos (Node.js / JavaScript)
+node_modules/
+# Segurança e Credenciais (Variáveis de Ambiente)
+.env
+.env.local
+# Ficheiros do Sistema Operativo
+.DS_Store
+Thumbs.db
