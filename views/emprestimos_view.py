@@ -1,8 +1,8 @@
-# views/emprestimos_view.py
+# views/emprestimos_view.py — ajustado para operar sobre EXEMPLARES
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from controllers.livro_controller import LivroController
+from controllers.exemplar_controller import ExemplarController
 from controllers.emprestimo_controller import EmprestimoController
 from config import COLORS
 
@@ -10,11 +10,11 @@ STATUS_LABELS = {"disponivel": "Disponível", "em_uso": "Em uso", "emprestado": 
 
 
 class EmprestimosView(tk.Frame):
-    """UC-012/013: Alterar status do livro e registrar empréstimos."""
+    """UC-012/013: Alterar status de um EXEMPLAR e registrar empréstimos."""
 
     def __init__(self, master):
         super().__init__(master, bg=COLORS["background"])
-        self.livro_controller = LivroController()
+        self.exemplar_controller = ExemplarController()
         self.emprestimo_controller = EmprestimoController()
         self._montar_interface()
         self._carregar()
@@ -32,50 +32,50 @@ class EmprestimosView(tk.Frame):
         container = tk.Frame(self, bg=COLORS["background"])
         container.pack(fill="both", expand=True, padx=20, pady=10)
 
-        colunas = ("titulo", "autor", "isbn", "local", "status")
+        colunas = ("codigo", "titulo", "autores", "local", "status")
         self.tree = ttk.Treeview(container, columns=colunas, show="headings", height=15)
         for col, texto, largura in [
-            ("titulo", "Título", 200), ("autor", "Autor", 150),
-            ("isbn", "ISBN", 130), ("local", "Localização", 150),
+            ("codigo", "Código", 90), ("titulo", "Título", 180),
+            ("autores", "Autor(es)", 150), ("local", "Localização", 150),
             ("status", "Status", 100),
         ]:
             self.tree.heading(col, text=texto)
             self.tree.column(col, width=largura)
         self.tree.pack(fill="both", expand=True)
 
-        tk.Button(self, text="Alterar status do livro selecionado",
+        tk.Button(self, text="Alterar status do exemplar selecionado",
                    command=self._alterar_status, bg=COLORS["primary"], fg="white",
                    relief="flat", padx=15, pady=8, cursor="hand2"
                    ).pack(padx=20, pady=(0, 15), anchor="w")
 
     def _carregar(self):
         filtro = self.entry_busca.get()
-        livros = self.livro_controller.listar_livros(filtro)
+        exemplares = self.exemplar_controller.listar_todos(filtro)
         self.tree.delete(*self.tree.get_children())
-        for l in livros:
-            local = f"{l.get('nome_prateleira') or '-'} / {l.get('nome_estante') or '-'}"
-            self.tree.insert("", "end", iid=l["id_livro"], values=(
-                l["titulo"], l["autor"], l["isbn"] or "-", local,
-                STATUS_LABELS.get(l["status"], l["status"])
+        for ex in exemplares:
+            local = f"{ex.get('nome_prateleira') or '-'} / {ex.get('nome_estante') or '-'}"
+            self.tree.insert("", "end", iid=ex["id_exemplar"], values=(
+                ex["codigo_tombo"] or "-", ex["titulo"], ex.get("autores") or "-",
+                local, STATUS_LABELS.get(ex["status"], ex["status"])
             ))
 
     def _alterar_status(self):
         sel = self.tree.selection()
         if not sel:
-            messagebox.showwarning("Atenção", "Selecione um livro.")
+            messagebox.showwarning("Atenção", "Selecione um exemplar.")
             return
-        id_livro = int(sel[0])
-        JanelaAlterarStatus(self, id_livro, self.emprestimo_controller, self._carregar)
+        id_exemplar = int(sel[0])
+        JanelaAlterarStatus(self, id_exemplar, self.emprestimo_controller, self._carregar)
 
 
 class JanelaAlterarStatus(tk.Toplevel):
-    """UC-012: Modal 'Alterar Status do Livro' (réplica do Figma)."""
+    """UC-012: Modal 'Alterar Status do Exemplar'."""
 
-    def __init__(self, master, id_livro, controller, on_salvar):
+    def __init__(self, master, id_exemplar, controller, on_salvar):
         super().__init__(master)
-        self.title("Alterar Status do Livro")
+        self.title("Alterar Status do Exemplar")
         self.geometry("380x340")
-        self.id_livro = id_livro
+        self.id_exemplar = id_exemplar
         self.controller = controller
         self.on_salvar = on_salvar
         self.status_selecionado = tk.StringVar(value="disponivel")
@@ -114,7 +114,7 @@ class JanelaAlterarStatus(tk.Toplevel):
         status = self.status_selecionado.get()
         observacao = self.text_obs.get("1.0", "end").strip()
 
-        sucesso, erro = self.controller.alterar_status(self.id_livro, status, observacao)
+        sucesso, erro = self.controller.alterar_status(self.id_exemplar, status, observacao)
         if not sucesso:
             messagebox.showerror("Erro de validação", erro)
             return
