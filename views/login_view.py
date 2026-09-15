@@ -1,7 +1,8 @@
 # views/login_view.py
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import Image, messagebox
+from PIL import Image, ImageTk
 from controllers.usuario_controller import UsuarioController
 from config import APP_NAME, COLORS
 
@@ -13,64 +14,88 @@ class LoginView(tk.Frame):
     """
 
     def __init__(self, master, on_login_success):
-        super().__init__(master, bg=COLORS["sidebar"])
+        super().__init__(master, bg="#B4E9EF")
         self.master = master
         self.on_login_success = on_login_success
         self.usuario_controller = UsuarioController()
         self._montar_interface()
 
     def _montar_interface(self):
-        container = tk.Frame(self, bg=COLORS["sidebar"])
-        container.place(relx=0.5, rely=0.5, anchor="center")
 
-        # Logo / título
-        tk.Label(
-            container, text="📚", font=("Segoe UI", 40),
-            bg="#c5e8e0", width=4, height=2
-        ).pack(pady=(0, 10))
+        # Impedir redimensionamento da janela
+        self.master.resizable(False, False)
+
+        # Container principal
+        main = tk.Frame(self, bg="#B4E9EF")
+        main.pack(fill="both", expand=True)
+
+        # Painel esquerdo (logo)
+        left_frame = tk.Frame(main, bg="#B4E9EF")
+        left_frame.pack(side="left", fill="both", expand=True)
+
+        # Painel direito (branco)
+        right_frame = tk.Frame(main, bg="#1c3f4a", width=450)
+        right_frame.pack(side="right", fill="y")
+
+        # ========= LOGO =========
+        img = Image.open("assets/acervia2.jpg")
+        img = img.resize((450, 400))
+
+        self.logo_img = ImageTk.PhotoImage(img)
 
         tk.Label(
-            container, text=APP_NAME, font=("Segoe UI", 16, "bold"),
-            bg=COLORS["sidebar"], fg="white"
+            left_frame,
+            image=self.logo_img,
+            bg="#B4E9EF"
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # ========= CARD LOGIN =========
+        card = tk.Frame(right_frame, bg="#1c3f4a")
+        card.place(relx=0.5, rely=0.5, anchor="center")
+
+        tk.Label(
+            card,
+            text="Acesso ao sistema",
+            font=("Segoe UI", 14, "bold"),
+            bg="#1c3f4a",
+            fg="white"
+        ).pack(anchor="w", pady=(0, 20))
+
+        tk.Label(
+            card,
+            text="LOGIN",
+            bg="#1c3f4a",
+            fg="white"
+        ).pack(anchor="w")
+
+        self.entry_login = tk.Entry(card, width=30)
+        self.entry_login.pack(pady=(0, 15))
+
+        tk.Label(
+            card,
+            text="SENHA",
+            bg="#1c3f4a",
+            fg="white"
+        ).pack(anchor="w")
+
+        self.entry_senha = tk.Entry(card, show="*", width=30)
+        self.entry_senha.pack(pady=(0, 20))
+
+        tk.Button(
+            card,
+            text="Entrar no sistema",
+            bg="#2D8AA6",
+            fg="white",
+            width=25
         ).pack()
 
         tk.Label(
-            container, text="ORGANIZE SEU MUNDO LITERÁRIO",
-            font=("Segoe UI", 9), bg=COLORS["sidebar"], fg="#a8d4c8"
-        ).pack(pady=(0, 20))
-
-        # Card branco de login
-        card = tk.Frame(container, bg="white", padx=30, pady=25)
-        card.pack()
-
-        tk.Label(
-            card, text="Acesso ao sistema", font=("Segoe UI", 11, "bold"),
-            bg="white", fg=COLORS["text_dark"]
-        ).grid(row=0, column=0, sticky="w", pady=(0, 15))
-
-        tk.Label(card, text="LOGIN", font=("Segoe UI", 8), bg="white",
-                 fg=COLORS["text_gray"]).grid(row=1, column=0, sticky="w")
-        self.entry_login = tk.Entry(card, font=("Segoe UI", 10), width=30)
-        self.entry_login.grid(row=2, column=0, pady=(2, 10))
-
-        tk.Label(card, text="SENHA", font=("Segoe UI", 8), bg="white",
-                 fg=COLORS["text_gray"]).grid(row=3, column=0, sticky="w")
-        self.entry_senha = tk.Entry(card, font=("Segoe UI", 10), width=30, show="•")
-        self.entry_senha.grid(row=4, column=0, pady=(2, 15))
-        self.entry_senha.bind("<Return>", lambda e: self._fazer_login())
-
-        btn_entrar = tk.Button(
-            card, text="Entrar no sistema", font=("Segoe UI", 10, "bold"),
-            bg=COLORS["primary"], fg="white", relief="flat", pady=8,
-            activebackground=COLORS["primary_dark"], cursor="hand2",
-            command=self._fazer_login
-        )
-        btn_entrar.grid(row=5, column=0, sticky="ew")
-
-        tk.Label(
-            card, text="admin / admin123", font=("Segoe UI", 8),
-            bg="white", fg="#94a3b8"
-        ).grid(row=6, column=0, pady=(10, 0))
+            card, 
+            text="admin / admin123", 
+            font=("Segoe UI", 8),
+            bg="#1c3f4a", 
+            fg="#94a3b8"
+        ).pack(pady=(10, 0))
 
         self.entry_login.focus()
 
