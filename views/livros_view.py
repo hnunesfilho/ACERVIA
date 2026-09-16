@@ -198,6 +198,19 @@ class LivrosView(tk.Frame):
             self.livro_controller.excluir_livro(id_livro)
             self._carregar_livros()
 
+    # views/livros_view.py — trecho ajustado dentro da classe LivrosView
+
+    def _excluir(self, id_livro, titulo):
+        if messagebox.askyesno(
+            "Confirmar exclusão",
+            f'Deseja excluir "{titulo}"?\nTodos os exemplares desta obra também serão removidos.'
+        ):
+            sucesso, erro = self.livro_controller.excluir_livro(id_livro)
+            if not sucesso:
+                messagebox.showerror("Exclusão não permitida", erro)
+                return
+            self._carregar_livros()
+
 
 class FormLivro(tk.Toplevel):
     """
@@ -450,6 +463,21 @@ class JanelaExemplares(tk.Toplevel):
         if self.on_atualizar:
             self.on_atualizar()
 
+    # views/livros_view.py — trecho ajustado dentro da classe JanelaExemplares
+
+    def _excluir_exemplar(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("Atenção", "Selecione um exemplar.")
+            return
+        codigo = self.tree.item(sel[0])["values"][0]
+        if messagebox.askyesno("Confirmar", f'Excluir o exemplar "{codigo}"?'):
+            sucesso, erro = self.exemplar_controller.excluir_exemplar(int(sel[0]))
+            if not sucesso:
+                messagebox.showerror("Exclusão não permitida", erro)
+                return
+            self._on_salvo()
+
 
 class FormExemplar(tk.Toplevel):
     """Formulário de Cadastro/Alteração de um EXEMPLAR (cópia física) de um livro."""
@@ -598,3 +626,5 @@ class FormExemplar(tk.Toplevel):
         if self.on_salvar:
             self.on_salvar()
         self.destroy()
+
+    
