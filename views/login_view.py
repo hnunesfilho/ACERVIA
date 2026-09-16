@@ -86,7 +86,8 @@ class LoginView(tk.Frame):
             text="Entrar no sistema",
             bg="#2D8AA6",
             fg="white",
-            width=25
+            width=25,
+            command=self._fazer_login
         ).pack()
 
         tk.Label(

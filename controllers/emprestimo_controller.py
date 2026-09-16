@@ -1,15 +1,15 @@
 # controllers/emprestimo_controller.py
 
-from models.livro_model import Livro
+from models.exemplar_model import Exemplar
 from models.emprestimo_model import Emprestimo
 
 
 class EmprestimoController:
-    """Controller responsável pelas regras de negócio de empréstimos."""
+    """Controller responsável pelas regras de negócio de empréstimos por exemplar."""
 
-    def alterar_status(self, id_livro, novo_status, observacao):
+    def alterar_status(self, id_exemplar, novo_status, observacao):
         """
-        UC-012/UC-013: Alterar status do livro e registrar empréstimo.
+        UC-012/UC-013: Alterar status do exemplar e registrar empréstimo.
         RN-010: Status deve ser Disponível, Em uso ou Emprestado.
         RN-011: Observação obrigatória para status "emprestado".
         RN-012: Data do empréstimo registrada automaticamente.
@@ -20,18 +20,17 @@ class EmprestimoController:
         if novo_status == "emprestado" and not observacao.strip():
             return False, "As observações são obrigatórias para o status 'Emprestado'."
 
-        livro_atual = Livro.buscar_por_id(id_livro)
+        exemplar_atual = Exemplar.buscar_por_id(id_exemplar)
 
         if novo_status == "disponivel":
             observacao = ""
-            if livro_atual and livro_atual["status"] == "emprestado":
-                Emprestimo.finalizar_emprestimo_ativo(id_livro)
+            if exemplar_atual and exemplar_atual["status"] == "emprestado":
+                Emprestimo.finalizar_emprestimo_ativo(id_exemplar)
         elif novo_status == "emprestado":
-            Emprestimo.registrar(id_livro, observacao)
+            Emprestimo.registrar(id_exemplar, observacao)
 
-        Livro.atualizar_status(id_livro, novo_status, observacao)
+        Exemplar.atualizar_status(id_exemplar, novo_status, observacao)
         return True, None
 
-    def historico(self, id_livro):
-        """UC: Consultar histórico de empréstimos."""
-        return Emprestimo.historico_por_livro(id_livro)
+    def historico(self, id_exemplar):
+        return Emprestimo.historico_por_exemplar(id_exemplar)
