@@ -86,7 +86,8 @@ class LoginView(tk.Frame):
             text="Entrar no sistema",
             bg="#2D8AA6",
             fg="white",
-            width=25
+            width=25,
+            command=self._fazer_login
         ).pack()
 
         tk.Label(
@@ -97,9 +98,11 @@ class LoginView(tk.Frame):
             fg="#94a3b8"
         ).pack(pady=(10, 0))
 
+        self.master.bind("<Return>", self._fazer_login)
+
         self.entry_login.focus()
 
-    def _fazer_login(self):
+    def _fazer_login(self, event=None):
         login = self.entry_login.get().strip()
         senha = self.entry_senha.get().strip()
 
