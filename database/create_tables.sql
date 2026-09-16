@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS prateleiras (
 CREATE TABLE IF NOT EXISTS livros (
     id_livro INT PRIMARY KEY AUTO_INCREMENT,
     titulo VARCHAR(255) NOT NULL,
-    autor VARCHAR(255) NOT NULL,
+    -- Mantida apenas para compatibilidade com bancos criados pela versão antiga.
+    autor VARCHAR(255) NULL,
     isbn VARCHAR(20) UNIQUE,
     ano_publicacao INT,
     genero VARCHAR(100),
@@ -54,6 +55,34 @@ CREATE TABLE IF NOT EXISTS livros (
     id_usuario_cadastro INT,
     FOREIGN KEY (id_prateleira) REFERENCES prateleiras(id_prateleira) ON DELETE SET NULL,
     FOREIGN KEY (id_usuario_cadastro) REFERENCES usuarios(id_usuario) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Compatibilidade com bancos criados antes da separação dos autores.
+ALTER TABLE livros MODIFY COLUMN autor VARCHAR(255) NULL;
+
+CREATE TABLE IF NOT EXISTS autores (
+    id_autor INT PRIMARY KEY AUTO_INCREMENT,
+    nome_autor VARCHAR(255) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS livro_autores (
+    id_livro INT NOT NULL,
+    id_autor INT NOT NULL,
+    PRIMARY KEY (id_livro, id_autor),
+    FOREIGN KEY (id_livro) REFERENCES livros(id_livro) ON DELETE CASCADE,
+    FOREIGN KEY (id_autor) REFERENCES autores(id_autor) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS exemplares (
+    id_exemplar INT PRIMARY KEY AUTO_INCREMENT,
+    id_livro INT NOT NULL,
+    codigo_tombo VARCHAR(100) UNIQUE,
+    id_prateleira INT,
+    foto_path VARCHAR(500),
+    status ENUM('disponivel', 'em_uso', 'emprestado') DEFAULT 'disponivel',
+    observacao TEXT,
+    FOREIGN KEY (id_livro) REFERENCES livros(id_livro) ON DELETE CASCADE,
+    FOREIGN KEY (id_prateleira) REFERENCES prateleiras(id_prateleira) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS emprestimos (

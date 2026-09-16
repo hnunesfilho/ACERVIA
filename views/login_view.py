@@ -98,11 +98,23 @@ class LoginView(tk.Frame):
             fg="#94a3b8"
         ).pack(pady=(10, 0))
 
-        self.master.bind("<Return>", self._fazer_login)
+        self._return_bind_id = self.master.bind(
+            "<Return>", self._fazer_login, "+"
+        )
 
         self.entry_login.focus()
 
+    def destroy(self):
+        """Remove o evento global antes de destruir os campos do login."""
+        if getattr(self, "_return_bind_id", None):
+            self.master.unbind("<Return>", self._return_bind_id)
+            self._return_bind_id = None
+        super().destroy()
+
     def _fazer_login(self, event=None):
+        if not self.winfo_exists():
+            return "break"
+
         login = self.entry_login.get().strip()
         senha = self.entry_senha.get().strip()
 

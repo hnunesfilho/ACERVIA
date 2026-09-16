@@ -1,6 +1,7 @@
 # views/main_view.py
 
 import tkinter as tk
+from PIL import Image, ImageTk
 from config import APP_NAME, APP_VERSION, COLORS
 from views.livros_view import LivrosView
 from views.usuarios_view import UsuariosView
@@ -32,10 +33,18 @@ class MainView(tk.Frame):
         sidebar = tk.Frame(self, bg=COLORS["sidebar"], width=210)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
-
         header = tk.Frame(sidebar, bg=COLORS["sidebar"])
         header.pack(fill="x", pady=15, padx=15)
-        tk.Label(header, text="📚", font=("Segoe UI", 16), bg="#c5e8e0", width=2).pack(side="left")
+
+        logo = Image.open("assets/Acervia.png.png")
+        logo = logo.resize((35, 35))
+        self.logo_img = ImageTk.PhotoImage(logo)
+
+        tk.Label(
+            header,
+            image=self.logo_img,
+            bg=COLORS["sidebar"]
+        ).pack(side="left")
         info = tk.Frame(header, bg=COLORS["sidebar"])
         info.pack(side="left", padx=8)
         tk.Label(info, text=APP_NAME, font=("Segoe UI", 11, "bold"),
