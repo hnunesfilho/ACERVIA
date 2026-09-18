@@ -7,6 +7,10 @@ from controllers.livro_controller import LivroController
 from controllers.exemplar_controller import ExemplarController
 from controllers.localizacao_controller import LocalizacaoController
 from config import COLORS
+from utils.gerenciador_fotos import salvar_foto, caminho_completo_foto, remover_foto
+from utils.gerenciador_fotos import caminho_completo_foto
+
+from utils.gerenciador_fotos import remover_foto
 
 GENEROS = ["Ficção", "Romance", "Naturalismo", "Poesia", "Biografia",
            "Técnico", "Infantil", "Histórico", "Fantasia", "Suspense"]
@@ -210,6 +214,26 @@ class LivrosView(tk.Frame):
                 messagebox.showerror("Exclusão não permitida", erro)
                 return
             self._carregar_livros()
+
+    def _carregar_primeira_foto(self, id_livro, largura=140, altura=180):
+        """
+        Usa a foto do primeiro exemplar cadastrado, apenas para representar
+        o card da obra. Monta o caminho completo a partir do nome do arquivo
+        salvo na pasta interna do projeto.
+        """
+        try:
+            exemplares = self.exemplar_controller.listar_por_livro(id_livro)
+            for ex in exemplares:
+                if ex.get("foto_path"):
+                    caminho = caminho_completo_foto(ex["foto_path"])
+                    img = Image.open(caminho)
+                    img = img.resize((largura, altura))
+                    foto_tk = ImageTk.PhotoImage(img)
+                    self.imagens_cache.append(foto_tk)
+                    return foto_tk
+        except Exception:
+            pass
+        return None
 
 
 class FormLivro(tk.Toplevel):
@@ -463,7 +487,9 @@ class JanelaExemplares(tk.Toplevel):
         if self.on_atualizar:
             self.on_atualizar()
 
-    # views/livros_view.py — trecho ajustado dentro da classe JanelaExemplares
+  
+
+# views/livros_view.py — versão final e mais simples deste trecho
 
     def _excluir_exemplar(self):
         sel = self.tree.selection()
@@ -495,7 +521,8 @@ class FormExemplar(tk.Toplevel):
         self.loc_controller = loc_controller
         self.id_exemplar = id_exemplar
         self.on_salvar = on_salvar
-        self.foto_path = None
+        self.foto_path = None          # nome do arquivo salvo (o que vai para o banco)
+        self.foto_path_antigo = None   # guarda o nome anterior, para remover se for trocada
         self.foto_preview_tk = None
 
         self.frame_rodape = tk.Frame(self, bg="white")
@@ -570,22 +597,35 @@ class FormExemplar(tk.Toplevel):
         self.label_status_foto.pack(anchor="w", pady=(8, 0))
 
     def _escolher_foto(self):
-        caminho = filedialog.askopenfilename(filetypes=[("Imagens", "*.jpg *.jpeg *.png")])
-        if caminho:
-            self.foto_path = caminho
-            self._atualizar_preview(caminho)
+        """
+        Ao escolher a foto, copia imediatamente o arquivo para a pasta interna
+        do projeto (fotos_exemplares) e passa a trabalhar apenas com o nome
+        gerado, garantindo que a imagem viaje junto com o projeto/banco de dados.
+        """
+        caminho_original = filedialog.askopenfilename(
+            filetypes=[("Imagens", "*.jpg *.jpeg *.png")])
+        if not caminho_original:
+            return
 
-    def _atualizar_preview(self, caminho):
         try:
-            img = Image.open(caminho)
+            nome_arquivo_salvo = salvar_foto(caminho_original)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível copiar a foto para o projeto: {e}")
+            return
+
+        self.foto_path = nome_arquivo_salvo
+        self._atualizar_preview(caminho_completo_foto(nome_arquivo_salvo))
+
+    def _atualizar_preview(self, caminho_completo):
+        try:
+            img = Image.open(caminho_completo)
             img = img.resize((110, 140))
             self.foto_preview_tk = ImageTk.PhotoImage(img)
             self.label_preview.config(image=self.foto_preview_tk, text="", bg="white")
-            nome_arquivo = caminho.split("/")[-1].split("\\")[-1]
-            self.label_status_foto.config(text=f"✓ Foto carregada:\n{nome_arquivo}", fg="#15803d")
+            self.label_status_foto.config(text="✓ Foto carregada", fg="#15803d")
         except Exception as e:
             self.label_preview.config(image="", text="⚠", bg="#fee2e2", fg="#b91c1c")
-            self.label_status_foto.config(text=f"Erro: {e}", fg="#b91c1c")
+            self.label_status_foto.config(text=f"Erro ao carregar a imagem: {e}", fg="#b91c1c")
             self.foto_path = None
 
     def _carregar_dados(self, id_exemplar):
@@ -596,9 +636,16 @@ class FormExemplar(tk.Toplevel):
         self.entry_codigo.insert(0, ex["codigo_tombo"] or "")
         self.combo_status.set(STATUS_LABELS.get(ex["status"], "Disponível"))
         self.text_obs.insert("1.0", ex["observacao"] or "")
+
+        # foto_path armazenado no banco já é apenas o NOME do arquivo
         self.foto_path = ex["foto_path"]
+        self.foto_path_antigo = ex["foto_path"]
+
         if self.foto_path:
-            self._atualizar_preview(self.foto_path)
+            caminho = caminho_completo_foto(self.foto_path)
+            if caminho:
+                self._atualizar_preview(caminho)
+
         if ex.get("nome_prateleira"):
             chave = f"{ex['nome_prateleira']} ({ex['nome_estante']})"
             self.combo_local.set(chave)
@@ -612,7 +659,7 @@ class FormExemplar(tk.Toplevel):
             "status": status_invertido.get(self.combo_status.get(), "disponivel"),
             "observacao": self.text_obs.get("1.0", "end").strip(),
             "id_prateleira": self.mapa_prateleiras.get(local_selecionado),
-            "foto_path": self.foto_path,
+            "foto_path": self.foto_path,  # apenas o nome do arquivo, não o caminho completo
         }
 
         sucesso, erro = self.exemplar_controller.salvar_exemplar(
@@ -622,9 +669,12 @@ class FormExemplar(tk.Toplevel):
             messagebox.showerror("Erro de validação", erro)
             return
 
+        # Se a foto foi trocada (havia uma foto antiga diferente da nova),
+        # remove o arquivo antigo da pasta para não acumular fotos órfãs.
+        if self.foto_path_antigo and self.foto_path_antigo != self.foto_path:
+            remover_foto(self.foto_path_antigo)
+
         messagebox.showinfo("Sucesso", "Exemplar salvo com sucesso!")
         if self.on_salvar:
             self.on_salvar()
         self.destroy()
-
-    

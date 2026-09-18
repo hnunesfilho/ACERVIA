@@ -1,6 +1,8 @@
 # controllers/exemplar_controller.py
 
 from models.exemplar_model import Exemplar
+from models.exemplar_model import Exemplar
+from utils.gerenciador_fotos import remover_foto
 
 
 class ExemplarController:
@@ -68,3 +70,5 @@ class ExemplarController:
             return False, f"Erro ao excluir exemplar: {e}"
 
         return True, None
+
+    

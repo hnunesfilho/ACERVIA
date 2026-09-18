@@ -117,7 +117,10 @@ class MainView(tk.Frame):
         self.label_breadcrumb.config(text="Acervia › Localizações")
         LocalizacoesView(self.area).pack(fill="both", expand=True)
 
+    
+
+    # views/main_view.py — trecho a ajustar na chamada de EmprestimosView
+
     def exibir_emprestimos(self):
         self._limpar_area()
-        self.label_breadcrumb.config(text="Acervia › Empréstimos")
-        EmprestimosView(self.area).pack(fill="both", expand=True)
+        EmprestimosView(self.area, self.usuario).pack(fill="both", expand=True)

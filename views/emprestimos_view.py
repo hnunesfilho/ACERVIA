@@ -1,4 +1,4 @@
-# views/emprestimos_view.py — ajustado para operar sobre EXEMPLARES
+# views/emprestimos_view.py — atualizado com colunas de rastreabilidade
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -10,10 +10,14 @@ STATUS_LABELS = {"disponivel": "Disponível", "em_uso": "Em uso", "emprestado": 
 
 
 class EmprestimosView(tk.Frame):
-    """UC-012/013: Alterar status de um EXEMPLAR e registrar empréstimos."""
+    """
+    UC-012/013: Alterar status de um EXEMPLAR e registrar empréstimos,
+    exibindo quem alterou, quando e a observação da alteração.
+    """
 
-    def __init__(self, master):
+    def __init__(self, master, usuario):
         super().__init__(master, bg=COLORS["background"])
+        self.usuario = usuario
         self.exemplar_controller = ExemplarController()
         self.emprestimo_controller = EmprestimoController()
         self._montar_interface()
@@ -32,16 +36,33 @@ class EmprestimosView(tk.Frame):
         container = tk.Frame(self, bg=COLORS["background"])
         container.pack(fill="both", expand=True, padx=20, pady=10)
 
-        colunas = ("codigo", "titulo", "autores", "local", "status")
+        # Colunas solicitadas: Código, Título, Localização, Status,
+        # Alterado por, Data da alteração e Observações
+        colunas = ("codigo", "titulo", "local", "status", "usuario", "data", "observacoes")
         self.tree = ttk.Treeview(container, columns=colunas, show="headings", height=15)
-        for col, texto, largura in [
-            ("codigo", "Código", 90), ("titulo", "Título", 180),
-            ("autores", "Autor(es)", 150), ("local", "Localização", 150),
-            ("status", "Status", 100),
-        ]:
+
+        configuracao_colunas = [
+            ("codigo", "Código", 80),
+            ("titulo", "Título", 160),
+            ("local", "Localização", 130),
+            ("status", "Status", 90),
+            ("usuario", "Alterado por", 120),
+            ("data", "Data da Alteração", 130),
+            ("observacoes", "Observações", 200),
+        ]
+        for col, texto, largura in configuracao_colunas:
             self.tree.heading(col, text=texto)
             self.tree.column(col, width=largura)
-        self.tree.pack(fill="both", expand=True)
+
+        scrollbar_y = ttk.Scrollbar(container, orient="vertical", command=self.tree.yview)
+        scrollbar_x = ttk.Scrollbar(container, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
 
         tk.Button(self, text="Alterar status do exemplar selecionado",
                    command=self._alterar_status, bg=COLORS["primary"], fg="white",
@@ -52,11 +73,24 @@ class EmprestimosView(tk.Frame):
         filtro = self.entry_busca.get()
         exemplares = self.exemplar_controller.listar_todos(filtro)
         self.tree.delete(*self.tree.get_children())
+
         for ex in exemplares:
             local = f"{ex.get('nome_prateleira') or '-'} / {ex.get('nome_estante') or '-'}"
+
+            data_alteracao = ex.get("data_ultima_alteracao")
+            data_formatada = data_alteracao.strftime("%d/%m/%Y %H:%M") if data_alteracao else "-"
+
+            usuario_alteracao = ex.get("usuario_ultima_alteracao") or "-"
+            observacao_alteracao = ex.get("ultima_observacao") or "-"
+
             self.tree.insert("", "end", iid=ex["id_exemplar"], values=(
-                ex["codigo_tombo"] or "-", ex["titulo"], ex.get("autores") or "-",
-                local, STATUS_LABELS.get(ex["status"], ex["status"])
+                ex["codigo_tombo"] or "-",
+                ex["titulo"],
+                local,
+                STATUS_LABELS.get(ex["status"], ex["status"]),
+                usuario_alteracao,
+                data_formatada,
+                observacao_alteracao,
             ))
 
     def _alterar_status(self):
@@ -65,18 +99,20 @@ class EmprestimosView(tk.Frame):
             messagebox.showwarning("Atenção", "Selecione um exemplar.")
             return
         id_exemplar = int(sel[0])
-        JanelaAlterarStatus(self, id_exemplar, self.emprestimo_controller, self._carregar)
+        JanelaAlterarStatus(self, id_exemplar, self.emprestimo_controller,
+                              self.usuario.id_usuario, self._carregar)
 
 
 class JanelaAlterarStatus(tk.Toplevel):
-    """UC-012: Modal 'Alterar Status do Exemplar'."""
+    """UC-012: Modal 'Alterar Status do Exemplar', com registro de usuário responsável."""
 
-    def __init__(self, master, id_exemplar, controller, on_salvar):
+    def __init__(self, master, id_exemplar, controller, id_usuario_logado, on_salvar):
         super().__init__(master)
         self.title("Alterar Status do Exemplar")
         self.geometry("380x340")
         self.id_exemplar = id_exemplar
         self.controller = controller
+        self.id_usuario_logado = id_usuario_logado
         self.on_salvar = on_salvar
         self.status_selecionado = tk.StringVar(value="disponivel")
 
@@ -105,8 +141,7 @@ class JanelaAlterarStatus(tk.Toplevel):
 
     def _atualizar_obs_estado(self):
         if self.status_selecionado.get() == "disponivel":
-            self.text_obs.delete("1.0", "end")
-            self.text_obs.config(state="disabled")
+            self.text_obs.config(state="normal")
         else:
             self.text_obs.config(state="normal")
 
@@ -114,7 +149,9 @@ class JanelaAlterarStatus(tk.Toplevel):
         status = self.status_selecionado.get()
         observacao = self.text_obs.get("1.0", "end").strip()
 
-        sucesso, erro = self.controller.alterar_status(self.id_exemplar, status, observacao)
+        sucesso, erro = self.controller.alterar_status(
+            self.id_exemplar, status, observacao, self.id_usuario_logado)
+
         if not sucesso:
             messagebox.showerror("Erro de validação", erro)
             return

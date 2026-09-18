@@ -26,22 +26,36 @@ class Exemplar:
     @staticmethod
     def listar_todos(filtro=""):
         """
-        Lista todos os exemplares do acervo, com dados da obra (título, autores)
-        já unidos — usado na tela de Empréstimos, que opera por exemplar.
+        Lista todos os exemplares do acervo, com dados da obra e da última
+        alteração de status (usuário, data e observação), usados na tela
+        de Empréstimos.
         """
         db = Connection()
         query = """
             SELECT
-                ex.id_exemplar, ex.codigo_tombo, ex.status, ex.observacao, ex.foto_path,
+                ex.id_exemplar, ex.codigo_tombo, ex.status, ex.foto_path,
                 l.id_livro, l.titulo, l.isbn,
                 p.nome_prateleira, e.nome_estante,
-                GROUP_CONCAT(DISTINCT a.nome_autor ORDER BY a.nome_autor SEPARATOR ', ') AS autores
+                GROUP_CONCAT(DISTINCT a.nome_autor ORDER BY a.nome_autor SEPARATOR ', ') AS autores,
+                ult.observacoes AS ultima_observacao,
+                ult.data_emprestimo AS data_ultima_alteracao,
+                ult.nome_usuario AS usuario_ultima_alteracao
             FROM exemplares ex
             JOIN livros l ON l.id_livro = ex.id_livro
             LEFT JOIN livro_autores la ON la.id_livro = l.id_livro
             LEFT JOIN autores a ON a.id_autor = la.id_autor
             LEFT JOIN prateleiras p ON ex.id_prateleira = p.id_prateleira
             LEFT JOIN estantes e ON p.id_estante = e.id_estante
+            LEFT JOIN (
+                SELECT e1.id_exemplar, e1.observacoes, e1.data_emprestimo, u.nome_completo AS nome_usuario
+                FROM emprestimos e1
+                LEFT JOIN usuarios u ON u.id_usuario = e1.id_usuario
+                INNER JOIN (
+                    SELECT id_exemplar, MAX(data_emprestimo) AS max_data
+                    FROM emprestimos
+                    GROUP BY id_exemplar
+                ) e2 ON e2.id_exemplar = e1.id_exemplar AND e2.max_data = e1.data_emprestimo
+            ) ult ON ult.id_exemplar = ex.id_exemplar
             WHERE l.titulo LIKE %s OR a.nome_autor LIKE %s OR l.isbn LIKE %s
             GROUP BY ex.id_exemplar
             ORDER BY l.titulo, ex.codigo_tombo
@@ -57,7 +71,6 @@ class Exemplar:
 
     @staticmethod
     def codigo_tombo_existe(codigo, ignorar_id=None):
-        """RN: o código de identificação do exemplar deve ser único."""
         if not codigo:
             return False
         db = Connection()
@@ -71,7 +84,6 @@ class Exemplar:
 
     @staticmethod
     def proximo_codigo_sugerido(id_livro):
-        """Gera automaticamente um código de tombo sugerido (ex: LIV-3-002)."""
         db = Connection()
         query = "SELECT COUNT(*) as total FROM exemplares WHERE id_livro = %s"
         row = db.execute(query, (id_livro,), fetchone=True)
@@ -80,7 +92,6 @@ class Exemplar:
 
     @staticmethod
     def salvar(id_livro, dados):
-        """Cadastra um novo exemplar (cópia física) vinculado a uma obra existente."""
         db = Connection()
         query = """
             INSERT INTO exemplares
