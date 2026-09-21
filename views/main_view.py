@@ -7,6 +7,10 @@ from views.usuarios_view import UsuariosView
 from views.localizacoes_view import LocalizacoesView
 from views.emprestimos_view import EmprestimosView
 
+from controllers.livro_controller import LivroController
+from controllers.exemplar_controller import ExemplarController
+from controllers.localizacao_controller import LocalizacaoController
+
 
 class MainView(tk.Frame):
     """
@@ -20,6 +24,24 @@ class MainView(tk.Frame):
         self.usuario = usuario
         self.usuario_controller = usuario_controller
         self.on_logout = on_logout
+
+        self.frame_conteudo = None
+        self._montar_sidebar()
+        self._montar_topbar()
+        self._montar_area_conteudo()
+        self.exibir_acervo()
+        self.master.resizable(True, True)
+
+    def __init__(self, master, usuario, usuario_controller, on_logout):
+        super().__init__(master, bg=COLORS["background"])
+        self.master = master
+        self.usuario = usuario
+        self.usuario_controller = usuario_controller
+        self.on_logout = on_logout
+
+        self.livro_controller = LivroController()
+        self.exemplar_controller = ExemplarController()
+        self.loc_controller = LocalizacaoController()
 
         self.frame_conteudo = None
         self._montar_sidebar()
@@ -106,7 +128,10 @@ class MainView(tk.Frame):
     def exibir_acervo(self):
         self._limpar_area()
         self.label_breadcrumb.config(text="Acervia › Acervo de Livros")
-        LivrosView(self.area, self.usuario, self.usuario_controller).pack(fill="both", expand=True)
+        LivrosView(
+        self.area, self.usuario, self.usuario_controller,
+        self.livro_controller, self.exemplar_controller, self.loc_controller
+    ).pack(fill="both", expand=True)
 
     def exibir_usuarios(self):
         self._limpar_area()

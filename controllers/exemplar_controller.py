@@ -1,74 +1,74 @@
 # controllers/exemplar_controller.py
 
 from models.exemplar_model import Exemplar
-from models.exemplar_model import Exemplar
+from models.emprestimo_model import Emprestimo
 from utils.gerenciador_fotos import remover_foto
 
 
 class ExemplarController:
-    """
-    Controller responsável pelas regras de negócio de exemplares
-    (cópias físicas de uma obra).
-    """
 
     def listar_por_livro(self, id_livro):
+        """Usado em livros_view.py (JanelaExemplares) para listar os exemplares de uma obra específica."""
         return Exemplar.listar_por_livro(id_livro)
 
     def listar_todos(self, filtro=""):
+        """Usado em emprestimos_view.py para listar todos os exemplares do acervo, com filtro de busca."""
         return Exemplar.listar_todos(filtro)
 
+    def buscar_por_id(self, id_exemplar):
+        """Usado internamente e no FormExemplar, para carregar dados na edição."""
+        return Exemplar.buscar_por_id(id_exemplar)
+
     def sugerir_codigo(self, id_livro):
+        """Usado em FormExemplar, para sugerir um código de tombo ao cadastrar um novo exemplar."""
         return Exemplar.proximo_codigo_sugerido(id_livro)
 
-    def salvar_exemplar(self, id_livro, dados, id_exemplar=None):
+    def salvar_exemplar(self, id_livro, dados, id_usuario, id_exemplar=None):
         """
-        Cadastra ou altera um exemplar (cópia física) de uma obra existente.
-        RN-006 (adaptada): o código de tombo, se informado, deve ser único.
-        RN-011: Observação obrigatória quando status é "em_uso" ou "emprestado".
+        Salva um exemplar (novo ou existente).
+
+        Ao mudar o status em relação ao valor anterior, registra
+        automaticamente um novo item no histórico de empréstimos,
+        com usuário, data e observação.
         """
-        codigo = (dados.get("codigo_tombo") or "").strip()
-        if codigo and Exemplar.codigo_tombo_existe(codigo, ignorar_id=id_exemplar):
-            return False, "Este código de exemplar já está em uso."
+        status_anterior = None
 
-        status = dados.get("status", "disponivel")
-        if status in ("em_uso", "emprestado") and not dados.get("observacao", "").strip():
-            return False, "Observações são obrigatórias para os status 'Em uso' ou 'Emprestado'."
+        if id_exemplar:
+            exemplar_atual = Exemplar.buscar_por_id(id_exemplar)
+            if exemplar_atual:
+                status_anterior = exemplar_atual["status"]
 
-        if status == "disponivel":
-            dados["observacao"] = ""
+        if not dados.get("codigo_tombo"):
+            return False, "O código do exemplar é obrigatório."
+
+        if dados["status"] in ("em_uso", "emprestado") and not dados.get("observacao"):
+            return False, "Observações são obrigatórias quando o status é 'Em uso' ou 'Emprestado'."
 
         try:
             if id_exemplar:
                 Exemplar.atualizar(id_exemplar, dados)
             else:
-                Exemplar.salvar(id_livro, dados)
+                id_exemplar = Exemplar.salvar(id_livro, dados)
         except Exception as e:
             return False, f"Erro ao salvar exemplar: {e}"
+
+        status_mudou = status_anterior is None or status_anterior != dados["status"]
+
+        if status_mudou:
+            try:
+                Emprestimo.registrar(id_exemplar, id_usuario, dados.get("observacao") or "")
+            except Exception as e:
+                return True, f"Exemplar salvo, mas houve um erro ao registrar o histórico: {e}"
 
         return True, None
 
     def excluir_exemplar(self, id_exemplar):
-        """
-        RN-017 (nova, aplicada também no nível do exemplar): não é permitido
-        excluir um exemplar específico caso ele esteja "Em uso" ou "Emprestado".
-        """
-        exemplar = Exemplar.buscar_por_id(id_exemplar)
-
-        if not exemplar:
-            return False, "Exemplar não encontrado."
-
-        if exemplar["status"] in ("em_uso", "emprestado"):
-            status_label = "em uso" if exemplar["status"] == "em_uso" else "emprestado"
-            return False, (
-                f"Não é possível excluir este exemplar: ele está atualmente {status_label}. "
-                f"Realize a devolução antes de excluir."
-            )
-
+        """Usado em livros_view.py (JanelaExemplares), com validação básica antes de remover."""
         try:
+            exemplar = Exemplar.buscar_por_id(id_exemplar)
+            if exemplar and exemplar.get("foto_path"):
+                remover_foto(exemplar["foto_path"])
             Exemplar.excluir(id_exemplar)
+            return True, None
         except Exception as e:
             return False, f"Erro ao excluir exemplar: {e}"
-
-        return True, None
-
-    

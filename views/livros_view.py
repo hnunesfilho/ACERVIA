@@ -3,14 +3,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
-from controllers.livro_controller import LivroController
-from controllers.exemplar_controller import ExemplarController
-from controllers.localizacao_controller import LocalizacaoController
 from config import COLORS
 from utils.gerenciador_fotos import salvar_foto, caminho_completo_foto, remover_foto
-from utils.gerenciador_fotos import caminho_completo_foto
-
-from utils.gerenciador_fotos import remover_foto
 
 GENEROS = ["Ficção", "Romance", "Naturalismo", "Poesia", "Biografia",
            "Técnico", "Infantil", "Histórico", "Fantasia", "Suspense"]
@@ -27,13 +21,14 @@ class LivrosView(tk.Frame):
     existem e quantos estão disponíveis no momento.
     """
 
-    def __init__(self, master, usuario, usuario_controller):
+    def __init__(self, master, usuario, usuario_controller, livro_controller,
+                 exemplar_controller, loc_controller, **kwargs):
         super().__init__(master, bg=COLORS["background"])
         self.usuario = usuario
         self.usuario_controller = usuario_controller
-        self.livro_controller = LivroController()
-        self.exemplar_controller = ExemplarController()
-        self.loc_controller = LocalizacaoController()
+        self.livro_controller = livro_controller
+        self.exemplar_controller = exemplar_controller
+        self.loc_controller = loc_controller
         self.imagens_cache = []
         self._montar_interface()
         self._carregar_livros()
@@ -113,12 +108,17 @@ class LivrosView(tk.Frame):
         )
 
     def _carregar_primeira_foto(self, id_livro, largura=140, altura=180):
-        """Usa a foto do primeiro exemplar cadastrado, apenas para representar o card da obra."""
+        """
+        Usa a foto do primeiro exemplar cadastrado, apenas para representar
+        o card da obra. Monta o caminho completo a partir do nome do arquivo
+        salvo na pasta interna do projeto.
+        """
         try:
             exemplares = self.exemplar_controller.listar_por_livro(id_livro)
             for ex in exemplares:
                 if ex.get("foto_path"):
-                    img = Image.open(ex["foto_path"])
+                    caminho = caminho_completo_foto(ex["foto_path"])
+                    img = Image.open(caminho)
                     img = img.resize((largura, altura))
                     foto_tk = ImageTk.PhotoImage(img)
                     self.imagens_cache.append(foto_tk)
@@ -191,18 +191,10 @@ class LivrosView(tk.Frame):
                    id_livro=id_livro, on_salvar=self._carregar_livros)
 
     def _abrir_exemplares(self, livro):
-        JanelaExemplares(self, livro, self.exemplar_controller, self.loc_controller,
-                           self.usuario_controller, on_atualizar=self._carregar_livros)
-
-    def _excluir(self, id_livro, titulo):
-        if messagebox.askyesno(
-            "Confirmar exclusão",
-            f'Deseja excluir "{titulo}"?\nTodos os exemplares desta obra também serão removidos.'
-        ):
-            self.livro_controller.excluir_livro(id_livro)
-            self._carregar_livros()
-
-    # views/livros_view.py — trecho ajustado dentro da classe LivrosView
+        JanelaExemplares(
+            self, livro, self.exemplar_controller, self.loc_controller,
+            self.usuario, self.usuario_controller, on_atualizar=self._carregar_livros
+        )
 
     def _excluir(self, id_livro, titulo):
         if messagebox.askyesno(
@@ -214,26 +206,6 @@ class LivrosView(tk.Frame):
                 messagebox.showerror("Exclusão não permitida", erro)
                 return
             self._carregar_livros()
-
-    def _carregar_primeira_foto(self, id_livro, largura=140, altura=180):
-        """
-        Usa a foto do primeiro exemplar cadastrado, apenas para representar
-        o card da obra. Monta o caminho completo a partir do nome do arquivo
-        salvo na pasta interna do projeto.
-        """
-        try:
-            exemplares = self.exemplar_controller.listar_por_livro(id_livro)
-            for ex in exemplares:
-                if ex.get("foto_path"):
-                    caminho = caminho_completo_foto(ex["foto_path"])
-                    img = Image.open(caminho)
-                    img = img.resize((largura, altura))
-                    foto_tk = ImageTk.PhotoImage(img)
-                    self.imagens_cache.append(foto_tk)
-                    return foto_tk
-        except Exception:
-            pass
-        return None
 
 
 class FormLivro(tk.Toplevel):
@@ -401,12 +373,12 @@ class FormLivro(tk.Toplevel):
 
 class JanelaExemplares(tk.Toplevel):
     """
-    Nova tela: gerencia os EXEMPLARES (cópias físicas) de uma obra específica.
+    Gerencia os EXEMPLARES (cópias físicas) de uma obra específica.
     Resolve o cenário de "mais de uma cópia do mesmo livro".
     """
 
     def __init__(self, master, livro, exemplar_controller, loc_controller,
-                 usuario_controller, on_atualizar=None):
+                 usuario, usuario_controller, on_atualizar=None):
         super().__init__(master)
         self.title(f"Exemplares — {livro['titulo']}")
         self.geometry("560x480")
@@ -415,6 +387,7 @@ class JanelaExemplares(tk.Toplevel):
         self.livro = livro
         self.exemplar_controller = exemplar_controller
         self.loc_controller = loc_controller
+        self.usuario = usuario
         self.usuario_controller = usuario_controller
         self.on_atualizar = on_atualizar
 
@@ -461,35 +434,20 @@ class JanelaExemplares(tk.Toplevel):
             ))
 
     def _novo_exemplar(self):
-        FormExemplar(self, self.livro, self.exemplar_controller, self.loc_controller,
-                      on_salvar=self._on_salvo)
+        FormExemplar(
+            self, self.livro, self.exemplar_controller, self.loc_controller,
+            self.usuario, on_salvar=self._on_salvo
+        )
 
     def _editar_exemplar(self):
         sel = self.tree.selection()
         if not sel:
             messagebox.showwarning("Atenção", "Selecione um exemplar.")
             return
-        FormExemplar(self, self.livro, self.exemplar_controller, self.loc_controller,
-                      id_exemplar=int(sel[0]), on_salvar=self._on_salvo)
-
-    def _excluir_exemplar(self):
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showwarning("Atenção", "Selecione um exemplar.")
-            return
-        codigo = self.tree.item(sel[0])["values"][0]
-        if messagebox.askyesno("Confirmar", f'Excluir o exemplar "{codigo}"?'):
-            self.exemplar_controller.excluir_exemplar(int(sel[0]))
-            self._on_salvo()
-
-    def _on_salvo(self):
-        self._carregar()
-        if self.on_atualizar:
-            self.on_atualizar()
-
-  
-
-# views/livros_view.py — versão final e mais simples deste trecho
+        FormExemplar(
+            self, self.livro, self.exemplar_controller, self.loc_controller,
+            self.usuario, id_exemplar=int(sel[0]), on_salvar=self._on_salvo
+        )
 
     def _excluir_exemplar(self):
         sel = self.tree.selection()
@@ -504,12 +462,17 @@ class JanelaExemplares(tk.Toplevel):
                 return
             self._on_salvo()
 
+    def _on_salvo(self):
+        self._carregar()
+        if self.on_atualizar:
+            self.on_atualizar()
+
 
 class FormExemplar(tk.Toplevel):
     """Formulário de Cadastro/Alteração de um EXEMPLAR (cópia física) de um livro."""
 
     def __init__(self, master, livro, exemplar_controller, loc_controller,
-                 id_exemplar=None, on_salvar=None):
+                 usuario, id_exemplar=None, on_salvar=None):
         super().__init__(master)
         self.title("Editar Exemplar" if id_exemplar else "Novo Exemplar")
         self.geometry("400x600")
@@ -519,6 +482,7 @@ class FormExemplar(tk.Toplevel):
         self.livro = livro
         self.exemplar_controller = exemplar_controller
         self.loc_controller = loc_controller
+        self.usuario = usuario
         self.id_exemplar = id_exemplar
         self.on_salvar = on_salvar
         self.foto_path = None          # nome do arquivo salvo (o que vai para o banco)
@@ -629,26 +593,23 @@ class FormExemplar(tk.Toplevel):
             self.foto_path = None
 
     def _carregar_dados(self, id_exemplar):
-        exemplares = self.exemplar_controller.listar_por_livro(self.livro["id_livro"])
-        ex = next((e for e in exemplares if e["id_exemplar"] == id_exemplar), None)
-        if not ex:
+        exemplar = self.exemplar_controller.buscar_por_id(id_exemplar)
+        if not exemplar:
             return
-        self.entry_codigo.insert(0, ex["codigo_tombo"] or "")
-        self.combo_status.set(STATUS_LABELS.get(ex["status"], "Disponível"))
-        self.text_obs.insert("1.0", ex["observacao"] or "")
+        self.entry_codigo.insert(0, exemplar["codigo_tombo"] or "")
+        self.combo_status.set(STATUS_LABELS.get(exemplar["status"], "Disponível"))
+        self.text_obs.insert("1.0", exemplar["observacao"] or "")
 
-        # foto_path armazenado no banco já é apenas o NOME do arquivo
-        self.foto_path = ex["foto_path"]
-        self.foto_path_antigo = ex["foto_path"]
+        if exemplar.get("id_prateleira"):
+            for chave, valor in self.mapa_prateleiras.items():
+                if valor == exemplar["id_prateleira"]:
+                    self.combo_local.set(chave)
+                    break
 
-        if self.foto_path:
-            caminho = caminho_completo_foto(self.foto_path)
-            if caminho:
-                self._atualizar_preview(caminho)
-
-        if ex.get("nome_prateleira"):
-            chave = f"{ex['nome_prateleira']} ({ex['nome_estante']})"
-            self.combo_local.set(chave)
+        if exemplar.get("foto_path"):
+            self.foto_path = exemplar["foto_path"]
+            self.foto_path_antigo = exemplar["foto_path"]
+            self._atualizar_preview(caminho_completo_foto(exemplar["foto_path"]))
 
     def _salvar(self):
         status_invertido = {v: k for k, v in STATUS_LABELS.items()}
@@ -659,18 +620,19 @@ class FormExemplar(tk.Toplevel):
             "status": status_invertido.get(self.combo_status.get(), "disponivel"),
             "observacao": self.text_obs.get("1.0", "end").strip(),
             "id_prateleira": self.mapa_prateleiras.get(local_selecionado),
-            "foto_path": self.foto_path,  # apenas o nome do arquivo, não o caminho completo
+            "foto_path": self.foto_path,
         }
 
         sucesso, erro = self.exemplar_controller.salvar_exemplar(
-            self.livro["id_livro"], dados, id_exemplar=self.id_exemplar)
+            self.livro["id_livro"], dados,
+            id_usuario=self.usuario.id_usuario,
+            id_exemplar=self.id_exemplar,
+        )
 
         if not sucesso:
             messagebox.showerror("Erro de validação", erro)
             return
 
-        # Se a foto foi trocada (havia uma foto antiga diferente da nova),
-        # remove o arquivo antigo da pasta para não acumular fotos órfãs.
         if self.foto_path_antigo and self.foto_path_antigo != self.foto_path:
             remover_foto(self.foto_path_antigo)
 
