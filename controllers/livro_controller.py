@@ -22,7 +22,7 @@ class LivroController:
         UC-002/UC-004: Cadastrar ou Alterar a obra (dados bibliográficos).
         RN-005: Título é obrigatório.
         RN-006: ISBN deve ser único, se informado.
-        RN-016 (nova): Pelo menos um autor deve ser informado.
+        RN-016: Pelo menos um autor deve ser informado.
         """
         if not dados.get("titulo", "").strip():
             return False, "O título é obrigatório.", None
@@ -50,10 +50,28 @@ class LivroController:
     def excluir_livro(self, id_livro):
         """
         UC-005: Excluir Livro (obra).
-        Todos os exemplares dessa obra são removidos em cascata.
+        RN-017 (nova): Não é permitido excluir uma obra caso algum de seus
+        exemplares esteja com status "Em uso" ou "Emprestado", evitando
+        perder o rastro de uma cópia física que ainda está fora da estante.
         """
+        exemplares = Exemplar.listar_por_livro(id_livro)
+
+        exemplares_indisponiveis = [
+            ex for ex in exemplares if ex["status"] in ("em_uso", "emprestado")
+        ]
+
+        if exemplares_indisponiveis:
+            quantidade = len(exemplares_indisponiveis)
+            codigos = ", ".join(ex["codigo_tombo"] or "sem código" for ex in exemplares_indisponiveis)
+            return False, (
+                f"Não é possível excluir este livro: {quantidade} exemplar(es) "
+                f"ainda está(ão) em uso ou emprestado ({codigos}). "
+                f"Realize a devolução antes de excluir a obra."
+            )
+
         try:
             Livro.excluir(id_livro)
         except Exception as e:
             return False, f"Erro ao excluir: {e}"
+
         return True, None

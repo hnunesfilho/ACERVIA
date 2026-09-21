@@ -36,8 +36,8 @@ class MainView(tk.Frame):
         header = tk.Frame(sidebar, bg=COLORS["sidebar"])
         header.pack(fill="x", pady=15, padx=15)
 
-        logo = Image.open("assets/Acervia.png.png")
-        logo = logo.resize((35, 35))
+        logo = Image.open("assets/Acervia.3.png")
+        logo = logo.resize((70, 70))
         self.logo_img = ImageTk.PhotoImage(logo)
 
         tk.Label(

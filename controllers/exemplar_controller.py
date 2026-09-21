@@ -46,8 +46,25 @@ class ExemplarController:
         return True, None
 
     def excluir_exemplar(self, id_exemplar):
+        """
+        RN-017 (nova, aplicada também no nível do exemplar): não é permitido
+        excluir um exemplar específico caso ele esteja "Em uso" ou "Emprestado".
+        """
+        exemplar = Exemplar.buscar_por_id(id_exemplar)
+
+        if not exemplar:
+            return False, "Exemplar não encontrado."
+
+        if exemplar["status"] in ("em_uso", "emprestado"):
+            status_label = "em uso" if exemplar["status"] == "em_uso" else "emprestado"
+            return False, (
+                f"Não é possível excluir este exemplar: ele está atualmente {status_label}. "
+                f"Realize a devolução antes de excluir."
+            )
+
         try:
             Exemplar.excluir(id_exemplar)
         except Exception as e:
             return False, f"Erro ao excluir exemplar: {e}"
+
         return True, None

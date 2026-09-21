@@ -7,8 +7,8 @@ DB_CONFIG = {
     "database": "biblioteca_pessoal"
 }
 
-APP_NAME = "Acervia"
-APP_VERSION = "v1.0"
+APP_NAME = ""
+APP_VERSION = "v1.1"
 
 # Paleta de cores baseada no protótipo do Figma
 COLORS = {
