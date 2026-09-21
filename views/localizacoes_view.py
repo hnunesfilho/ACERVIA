@@ -91,12 +91,36 @@ class LocalizacoesView(tk.Frame):
             return
         id_estante = int(sel[0])
         atual = self.lista_estantes.item(sel[0])["values"][0]
-        nome = simpledialog.askstring("Editar Estante", "Novo nome:", initialvalue=atual)
-        if nome:
-            sucesso, erro = self.controller.salvar_estante(nome, id_estante=id_estante)
-            if not sucesso:
-                messagebox.showerror("Erro", erro)
-            self._carregar()
+
+        janela = tk.Toplevel(self)
+        janela.title("Editar Estante")
+        janela.geometry("280x120")
+        janela.resizable(False, False)
+
+        tk.Label(janela, text="Novo nome:").pack(pady=(10, 0))
+
+        entrada = tk.Entry(janela, width=40)
+        entrada.pack(padx=10, pady=5)
+        entrada.insert(0, atual)
+        def salvar():
+            nome = entrada.get().strip()
+
+            if nome:
+                sucesso, erro = self.controller.salvar_prateleira(
+                nome,
+                id_estante=id_estante
+                )
+
+                if not sucesso:
+                    messagebox.showerror("Erro", erro)
+                
+                self._carregar()
+                janela.destroy()
+
+        tk.Button(janela, text="Salvar", command=salvar).pack(pady=5)
+
+        entrada.focus()
+        entrada.select_range(0, tk.END)
 
     def _excluir_estante(self):
         sel = self.lista_estantes.selection()
@@ -132,16 +156,36 @@ class LocalizacoesView(tk.Frame):
             return
         id_prat = int(sel[0])
         atual = self.lista_prateleiras.item(sel[0])["values"][0]
-        nome = simpledialog.askstring("Editar Prateleira", "Novo nome:", initialvalue=atual)
-        if nome:
-            estante_nome = self.lista_prateleiras.item(sel[0])["values"][1]
-            estante_obj = next((e for e in self.controller.listar_estantes()
-                                  if e["nome_estante"] == estante_nome), None)
-            sucesso, erro = self.controller.salvar_prateleira(
-                estante_obj["id_estante"], nome, id_prateleira=id_prat)
-            if not sucesso:
-                messagebox.showerror("Erro", erro)
-            self._carregar()
+
+        janela = tk.Toplevel(self)
+        janela.title("Editar Prateleira")
+        janela.geometry("280x120")
+        janela.resizable(False, False)
+        
+        tk.Label(janela, text="Novo nome:").pack(pady=(10, 0))
+        
+        entrada = tk.Entry(janela, width=40)
+        entrada.pack(padx=10, pady=5)
+        entrada.insert(0, atual)
+        def salvar():
+            nome = entrada.get().strip()
+        
+            if nome:
+                sucesso, erro = self.controller.salvar_prateleira(
+                nome,
+                id_prateleira=id_prat
+                )
+        
+                if not sucesso:
+                    messagebox.showerror("Erro", erro)
+                        
+                self._carregar()
+                janela.destroy()
+        
+        tk.Button(janela, text="Salvar", command=salvar).pack(pady=5)
+        
+        entrada.focus()
+        entrada.select_range(0, tk.END)
 
     def _excluir_prateleira(self):
         sel = self.lista_prateleiras.selection()

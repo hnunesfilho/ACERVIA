@@ -26,6 +26,7 @@ class MainView(tk.Frame):
         self._montar_topbar()
         self._montar_area_conteudo()
         self.exibir_acervo()
+        self.master.resizable(True, True)
 
     # ── Sidebar ──────────────────────────────────────────────────────
     def _montar_sidebar(self):
